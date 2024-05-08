@@ -1,20 +1,21 @@
 import binascii
 import socket
 import time
+import sys
+PY_VERSION = sys.version_info.major
+
+from .crc16 import crc16xmodem
 
 
-from crc16 import crc16xmodem
-
-
-GVM_RGB_LED_TYPE = 48
+GVM_RGB_LED_TYPE = 20
 MAGIC_STRING = "4C5409"
 MAGIC_NUMBER = "57000"
-MESSAGE_TEMPLATE = f"{MAGIC_STRING}{{device_id:02x}}{{device_type:02x}}" \
-                   f"{MAGIC_NUMBER}"\
-                   f"{{command:01x}}01{{parameter:02x}}"
+# MESSAGE_TEMPLATE = f"{MAGIC_STRING}{{device_id:02d}}{{device_type:02d}}" \
+#                    f"{MAGIC_NUMBER}"\
+#                    f"{{command:01x}}01{{parameter:02x}}"
 CMD_POWER = 0
-CMD_BRIGHTNESS = 2
-CMD_CCT = 3
+CMD_BRIGHTNESS = 2 ## 10 to 99
+CMD_CCT = 3 ## 0 to 100
 CMD_HUE = 4
 CMD_SATURATION = 5
 PRM_POWER_ON = 1
@@ -24,11 +25,11 @@ PRM_POWER_OFF = 0
 class GVMLamp(object):
     def __init__(
             self,
-            channel,
+            channel=0,
             gvm_type=GVM_RGB_LED_TYPE,
-            destination_ip='255.255.255.255',
+            destination_ip='192.168.4.255',
             destination_port=2525,
-            sleep=2,
+            sleep=0.1,
             verbose=False,
             *args, **kwargs):
         super(GVMLamp, self).__init__(*args, **kwargs)
@@ -42,12 +43,16 @@ class GVMLamp(object):
         self.sleep = sleep
 
     def send_message(self, command, parameter):
-        command_message = MESSAGE_TEMPLATE.format(
-            device_id=self.channel,
-            device_type=self.gvm_type,
-            command=command,
-            parameter=parameter
-        )
+        # command_message = MESSAGE_TEMPLATE.format(
+        #     device_id=self.channel,
+        #     device_type=self.gvm_type,
+        #     command=command,
+        #     parameter=parameter
+        # )
+
+        command_message = "{}{:02d}{:02d}".format(MAGIC_STRING,self.channel,self.gvm_type)
+        command_message = command_message + "{}".format(MAGIC_NUMBER)
+        command_message = command_message + "{:01x}01{:02x}".format(command,parameter)
 
         bytes_message = binascii.unhexlify(command_message)
         crc_result = crc16xmodem(bytes_message)
@@ -60,10 +65,16 @@ class GVMLamp(object):
                 self.gvm_type
             ))
 
-        self.led_endpoint.sendto(
-            bytes(final_message, 'utf-8'),
-            (self.destination_ip, self.destination_port)
-        )
+        if PY_VERSION == 2:
+            self.led_endpoint.sendto(
+                bytes(final_message), #, 'utf-8'),
+                (self.destination_ip, self.destination_port)
+            )
+        else:
+            self.led_endpoint.sendto(
+                bytes(final_message, 'utf-8'),
+                (self.destination_ip, self.destination_port)
+            )
         time.sleep(self.sleep)
 
     def turn_off(self):

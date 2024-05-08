@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 """Pure python library for calculating CRC16"""
 
+import sys
+PY_VERSION = sys.version_info.major
+
 ##############################################################################
 #
 #    Copyright (C) Gennady Trafimenkov, 2011
@@ -77,8 +80,10 @@ def _crc16(data, crc, table):
     Return calculated value of CRC
     """
     for byte in data:
-        # crc = ((crc<<8)&0xff00) ^ table[((crc>>8)&0xff)^ord(byte)]
-        crc = ((crc << 8) & 0xff00) ^ table[((crc >> 8) & 0xff) ^ byte]
+        if PY_VERSION == 2:
+            crc = ((crc<<8)&0xff00) ^ table[((crc>>8)&0xff)^ord(byte)]
+        else:
+            crc = ((crc << 8) & 0xff00) ^ table[((crc >> 8) & 0xff) ^ byte]
     return crc & 0xffff
 
 
